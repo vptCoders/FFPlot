@@ -351,7 +351,7 @@ let FFScatterPlot = (function() {
 let FFText = (function() {
 	"use strict";
 
-	let AUTO = true,
+	let AUTO = 0,
 		DEFAULT_OPTIONS = {
 			color: "rgb(89,89,89)",
 			fontFamily: "Calibri",
@@ -361,53 +361,80 @@ let FFText = (function() {
 			height: "100%",
 			horizontalAlignment: "center",
 			italic: false,
-			lineHeight: 1,
+			lineHeight: 2,
+			marginBottom: AUTO,
+			marginLeft: AUTO,
+			marginRight: AUTO,
+			marginTop: AUTO,
 			position: {
-				x: AUTO,
-				y: AUTO,
+				x: 50,
+				y: 12,
 			},
 			smallCaps: false,
-			title: "Chart Title",
+			strikeThrough: false,
+			title: "Text",
+			underline: false,
 			width: "100%",
 		},
 		ERROR_MSG_EN = {
 			em01: "No canvas element was specified.",
 			em02: "The canvas element specified is not valid.",
+			em03: "No options were specified.",
+			em04: "The options specified are not valid.",
 		},
 		ERROR_MSG = ERROR_MSG_EN;
 
 
 
 	function FFText(optionsObj) {
-		let STAGE_WIDTH = 0;
-		let STAGE_HEIGHT = 0;
 		let USER_OPTIONS = null;
 
-		function getFont(style) {
+		function getFont() {
+			let STYLE = getStyling();
 			let FONT_STR = "";
-			FONT_STR += (style.italic) ? "italic " : "normal ";
-			FONT_STR += (style.smallCaps) ? "small-caps" : "normal ";
-			FONT_STR += style.fontWeight + " ";
-			FONT_STR += style.fontStretch + " ";
-			FONT_STR += style.fontSize + "/";
-			FONT_STR += style.lineHeight + " ";
-			FONT_STR += style.fontFamily;
+			FONT_STR += (STYLE.italic) ? "italic " : "normal ";
+			FONT_STR += (STYLE.smallCaps) ? "small-caps" : "normal ";
+			FONT_STR += STYLE.fontWeight + " ";
+			FONT_STR += STYLE.fontStretch + " ";
+			FONT_STR += STYLE.fontSize + "/";
+			FONT_STR += STYLE.lineHeight + " ";
+			FONT_STR += STYLE.fontFamily;
 
 			return FONT_STR;
 		}
 
-		function getLeftOffset(ctx, style) {
-			// let STYLE = getStyling();
-			switch(style.horizontalAlignment) {
-				case "center":
-
-					break;
-			}
-		}
-
 		function getStyling() {
 			let STYLE = DEFAULT_OPTIONS;
+			if(USER_OPTIONS && "position" in USER_OPTIONS && "x" in USER_OPTIONS.position) STYLE.position.x = USER_OPTIONS.position.x;
+			if(USER_OPTIONS && "position" in USER_OPTIONS && "y" in USER_OPTIONS.position) STYLE.position.y = USER_OPTIONS.position.y;
+			if(USER_OPTIONS && "title" in USER_OPTIONS) STYLE.title = USER_OPTIONS.title;
+
 			return STYLE;
+		}
+
+		function parseNumericValue(value, percentageOfValue) {
+			let returnValue = value;
+			if(!(value.constructor === Number)) {
+				if(value.constructor === String) {
+					let valuePercentageStr = value.match(/\d+%/g);
+					let valuePxStr = value.match(/\d+px/g);
+					if(valuePercentageStr) {
+						if(valuePercentageStr.length === 1) {
+							returnValue = ((parseInt(valuePercentageStr[0].match(/\d+/g)))/100)*percentageOfValue;
+						}
+					} else if(valuePxStr){
+						if(valuePxStr.length === 1) {
+							returnValue = parseInt(valuePxStr[0].match(/\d+/g));
+						}
+					} else {
+						throw new Error(ERROR_MSG.em05);
+					}
+				} else {
+					throw new Error(ERROR_MSG.em05);
+				}
+			}
+
+			return returnValue;
 		}
 
 		function FFText(optionsObj) {
@@ -416,22 +443,44 @@ let FFText = (function() {
 		FFText.prototype = Object.create(this.constructor.prototype);
 		FFText.prototype.constructor = FFText;
 
-		FFText.prototype.plot = function(stage, optionsObj) {
+		FFText.prototype.getTextMetrics = function(stage, optionsObj) {
 			if(!stage) throw new Error(ERROR_MSG.em01);
+			if(optionsObj) this.setOptions(optionsObj);
 			
 			let ctx = stage.getContext("2d");
 			if(!(ctx instanceof CanvasRenderingContext2D)) throw new Error(ERROR_MSG.em02);
 
-			STAGE_WIDTH = stage.width;
-			STAGE_HEIGHT = stage.height;
 			let STYLE = getStyling();
-			ctx.font = getFont(STYLE);
-
+			ctx.font = getFont();
 			let textMetrics = ctx.measureText(STYLE.title);
-			ctx.fillText(STYLE.title, 0, 50);
+			textMetrics.height = parseNumericValue(STYLE.fontSize, stage.height);
+			return textMetrics;
 		}
 
+		FFText.prototype.plot = function(stage, optionsObj) {
+			if(!stage) throw new Error(ERROR_MSG.em01);
+			if(optionsObj) this.setOptions(optionsObj);
+			
+			let ctx = stage.getContext("2d");
+			if(!(ctx instanceof CanvasRenderingContext2D)) throw new Error(ERROR_MSG.em02);
 
+			let STYLE = getStyling();
+			ctx.font = getFont();
+			ctx.fillStyle = STYLE.color;
+			ctx.beginPath();
+			ctx.fillText(STYLE.title, STYLE.position.x, STYLE.position.y);
+			ctx.closePath();
+		}
+
+		FFText.prototype.setOptions = function(optionsObj) {
+			if(!optionsObj) throw new Error(ERROR_MSG.em03);
+
+			if(optionsObj.constructor === Object) {
+				USER_OPTIONS = optionsObj;
+			} else {
+				throw new Error(ERROR_MSG.em04);
+			}
+		};
 
 		this.constructor.prototype = FFText.prototype;
 		return new FFText(optionsObj);
@@ -472,8 +521,8 @@ let FFLabel = (function() {
 
 	let AUTO = 0,
 		DEFAULT_OPTIONS = {
-			fillColor: "rgba(255,255,255,0)",
-			borderColor: "rgba(217,217,217,1)",
+			fillColor: "rgba(220,220,220,1)",
+			borderColor: "rgba(217,217,217,0)",
 			height: AUTO,
 			horizontalAlignment: "center",
 			marginLeft: AUTO,
@@ -499,7 +548,8 @@ let FFLabel = (function() {
 
 
 	function FFLabel(optionsObj) {
-		let USER_OPTIONS = [];
+		let USER_OPTIONS = null;
+		let TEXT = new FFText();
 
 		function parseNumericValue(value, percentageOfValue) {
 			let returnValue = value;
@@ -531,6 +581,8 @@ let FFLabel = (function() {
 			let STAGE_WIDTH = stage.width;
 			let STAGE_HEIGHT = stage.height;
 			let STYLE = DEFAULT_OPTIONS;
+			if(USER_OPTIONS && "fillColor" in USER_OPTIONS) STYLE.fillColor = USER_OPTIONS.fillColor;
+			if(USER_OPTIONS && "borderColor" in USER_OPTIONS) STYLE.borderColor = USER_OPTIONS.borderColor;
 
 
 			STYLE.height = parseNumericValue(STYLE.height, STAGE_HEIGHT);
@@ -540,7 +592,6 @@ let FFLabel = (function() {
 			STYLE.marginRight = parseNumericValue(STYLE.marginRight, STAGE_WIDTH);
 			STYLE.marginTop = parseNumericValue(STYLE.marginTop, STAGE_HEIGHT);
 			STYLE.width = parseNumericValue(STYLE.width, STAGE_WIDTH);
-
 
 
 			switch(STYLE.horizontalAlignment) {
@@ -555,6 +606,10 @@ let FFLabel = (function() {
 			}
 
 
+			if(STYLE.height === AUTO) {
+				STYLE.height = TEXT.getTextMetrics(stage, {title: STYLE.title}).height;
+			}
+
 			return STYLE;
 		}
 
@@ -566,6 +621,7 @@ let FFLabel = (function() {
 
 		FFLabel.prototype.plot = function(stage, optionsObj) {
 			if(!stage) throw new Error(ERROR_MSG.em01);
+			if(optionsObj) this.setOptions(optionsObj);
 			
 			let ctx = stage.getContext("2d");
 			if(!(ctx instanceof CanvasRenderingContext2D)) throw new Error(ERROR_MSG.em02);
@@ -574,22 +630,30 @@ let FFLabel = (function() {
 			ctx.fillStyle = STYLE.fillColor;
 			ctx.strokeStyle = STYLE.borderColor;
 			ctx.beginPath();
-			ctx.rect(STYLE.position.x + STYLE.marginLeft, STYLE.position.y + STYLE.marginTop, STYLE.width, 100);
+			ctx.rect(STYLE.position.x + STYLE.marginLeft, STYLE.position.y + STYLE.marginTop, STYLE.width, STYLE.height);
 			ctx.fill();
 			ctx.stroke();
 			ctx.closePath();
+
+			let textMetrics = TEXT.getTextMetrics(stage, {title: STYLE.title});
+			TEXT.plot(stage, {
+				position: {
+					x: STYLE.position.x + STYLE.marginLeft + (STYLE.width - textMetrics.width)/2,
+					y: STYLE.position.y + STYLE.marginTop + STYLE.height + (STYLE.height - textMetrics.height)/2,
+				},
+				title: STYLE.title,
+			});
 		}
 
 		FFLabel.prototype.setOptions = function(optionsObj) {
 			if(!optionsObj) throw new Error(ERROR_MSG.em03);
 
 			if(optionsObj.constructor === Object) {
-				USER_OPTIONS.push(optionsObj);
+				USER_OPTIONS = optionsObj;
 			} else {
 				throw new Error(ERROR_MSG.em04);
 			}
 		};
-
 
 		this.constructor.prototype = FFLabel.prototype;
 		return new FFLabel(optionsObj);
